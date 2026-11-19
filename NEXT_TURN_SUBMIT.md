@@ -36,7 +36,8 @@
 - Visual notes (honest): posterize is strong by design (comic style, skin clean at strength 0.55 — not blotchy); palms are stylised silhouettes; editor shot shows the panel section cut at the fold (scrollable editor, normal).
 
 ## Remote HEAD
-- Round-1 remote HEAD was f97682524a420e94f1bd9ae0b03b89c5d69ab767. Round-2 commit pushed on top of it via push-api (no re-seed). New remote HEAD: **(filled by second commit — see git log)**. Verified via `git ls-remote` + credential-less clone diff empty.
+- Round-1 remote HEAD was f97682524a420e94f1bd9ae0b03b89c5d69ab767. Round-2 code pushed on top of it via push-api (no re-seed). Round-2 code commit: **a45e2310eb18fec6b13f5e6c52afdaf6eed1f36d** (15 files changed). Verified via `git ls-remote` + credential-less clone diff empty.
+- This runbook was then updated in a follow-up commit on top of a45e2310. SUBMIT the current remote HEAD (the HEAD after the runbook commit) — turn 1's final report names its exact SHA; always confirm with `git ls-remote https://github.com/ipaludhi/vice-heat-cover-studio.git HEAD` before submitting.
 
 ## Turn 2 — submit steps (parent)
 1. Gates: `status --competition gta6-cover-art-01` → can submit YES (quota: 1 round used, 4 left today, 19/20 hard limit). `git ls-remote` HEAD must equal the round-2 commit above. Recording 01a1f44c must still be alive (pgrep 28181 + log first line).
