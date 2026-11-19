@@ -1,54 +1,114 @@
-// Fixed scenes for screenshots: ?shot=editor shows the page with a sample photo;
-// ?shot=cover shows the cover alone at the requested size. `photo` picks the
-// sample (samples/<photo>.jpg), `caption` the words, `layout` / `grade` the look.
-// window.__shotReady is set once painted.
-import { renderCover, resetPanelsForLayout } from './cover.js';
+// LEONIDA HEAT — screenshot renderer (fresh code, written for round 2).
+// Serves app/ locally, screenshots the editor + covers with headless
+// Chrome, then downsamples each frame with Python/PIL to the dossier's
+// limits (long side <= 1280, short side >= 480, each file <= 256 KiB).
+// Usage: node app/src/shots.js [shots.json] [screenshots-dir]
 
-/** Apply the scene's layout/grade/caption onto the shared editor state. */
-export function applyScene(state, query) {
-  const layout = query.get('layout');
-  const grade = query.get('grade');
-  if (layout) state.layout = layout;
-  if (grade) state.grade = grade;
-  const caption = query.get('caption');
-  if (caption !== null) state.title = caption;
-  const subtitle = query.get('subtitle');
-  if (subtitle !== null) state.subtitle = subtitle;
-  resetPanelsForLayout(state);
+import { spawn, execFile } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import http from 'node:http';
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const shotsFile = process.argv[2] || join(repoRoot, 'shots.json');
+const outDir = process.argv[3] || join(repoRoot, 'screenshots');
+const PORT = 8099;
+const CHROME = process.env.CHROME || 'google-chrome';
+const MAX_BYTES = 262144;
+
+const shots = JSON.parse(readFileSync(shotsFile, 'utf8'));
+
+function waitForServer(port, tries = 60) {
+  return new Promise((resolvePromise, reject) => {
+    let left = tries;
+    const tick = () => {
+      const req = http.get({ host: '127.0.0.1', port, path: '/' }, (res) => {
+        res.resume();
+        if (res.statusCode === 200) resolvePromise(true);
+        else retry();
+      });
+      req.on('error', retry);
+      function retry() {
+        if (--left <= 0) reject(new Error('dev server did not answer'));
+        else setTimeout(tick, 500);
+      }
+    };
+    tick();
+  });
 }
 
-export async function runShot(shot, query, state, helpers) {
-  const { loadImage } = helpers;
-  const coverShot = shot === 'cover' || shot === 'cover-square' || shot === 'cover-portrait';
-  if (coverShot) document.body.classList.add('shot-cover');
-  const sizeParam = query.get('size');
-  let size = { w: 1920, h: 1080 };
-  if (sizeParam) {
-    const [w, h] = sizeParam.split('x').map(Number);
-    if (w > 0 && h > 0) size = { w, h };
-  } else if (shot === 'cover-square') size = { w: 1080, h: 1080 };
-  else if (shot === 'cover-portrait') size = { w: 1080, h: 1350 };
-  if (shot === 'editor') {
-    size = { w: 1920, h: 1080 };
-    document.body.classList.add('shot-editor');
-    if (!query.get('layout')) state.layout = 'diagonal';
-    if (!query.get('grade')) state.grade = 'sunset';
-  }
-  applyScene(state, query);
-  if (helpers.setExportSize) helpers.setExportSize(size);
-  await document.fonts.load('100px Anton').catch(() => {});
-  await document.fonts.ready.catch(() => {});
-  const pier = await loadImage('samples/pier.jpg');
-  const boulevard = await loadImage('samples/boulevard.jpg');
-  state.photos[0] = pier;
-  state.photos[1] = boulevard;
-  const canvas = document.getElementById('cover');
-  if (coverShot) {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    renderCover(canvas, state);
-  } else {
-    helpers.redraw();
-  }
-  requestAnimationFrame(() => requestAnimationFrame(() => { window.__shotReady = true; }));
+function runChrome(url, width, height, pngPath) {
+  return new Promise((resolvePromise, reject) => {
+    const args = [
+      '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+      '--hide-scrollbars', '--force-device-scale-factor=1',
+      `--window-size=${width},${height}`,
+      `--screenshot=${pngPath}`,
+      '--virtual-time-budget=9000',
+      url,
+    ];
+    execFile(CHROME, args, { timeout: 90000 }, (err) => {
+      if (err) reject(err);
+      else resolvePromise(true);
+    });
+  });
 }
+
+function downsample(pngPath, jpgPath, targetW, targetH) {
+  // PIL: fit inside the target box (long side <= 1280, short side >= 480),
+  // then save JPEG q82, falling back to q70 if still over the byte cap.
+  const script = [
+    'import sys',
+    'from PIL import Image',
+    'src, dst, tw, th = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])',
+    'im = Image.open(src).convert("RGB")',
+    'scale = min(tw / im.width, th / im.height)',
+    'im = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)',
+    'for q in (82, 70, 60):',
+    '    im.save(dst, "JPEG", quality=q)',
+    '    import os',
+    '    if os.path.getsize(dst) <= 262144: break',
+    'print(dst, im.size)',
+  ].join('\n');
+  return new Promise((resolvePromise, reject) => {
+    const tmp = join('/tmp', 'vice-downsample.py');
+    writeFileSync(tmp, script);
+    execFile('python3', [tmp, pngPath, jpgPath, String(targetW), String(targetH)], (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr || err.message));
+      else resolvePromise(stdout.trim());
+    });
+  });
+}
+
+async function main() {
+  mkdirSync(outDir, { recursive: true });
+  const server = spawn(process.execPath, [join(repoRoot, 'serve.ts'), String(PORT)], {
+    cwd: repoRoot,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  server.stdout.on('data', (d) => process.stdout.write('[serve] ' + d));
+  server.stderr.on('data', (d) => process.stderr.write('[serve] ' + d));
+  try {
+    await waitForServer(PORT);
+    for (const shot of shots) {
+      const url = `http://127.0.0.1:${PORT}/?${shot.query}`;
+      const png = join('/tmp', `vice-${shot.file}.png`);
+      const jpg = join(outDir, shot.file);
+      console.log('shot', shot.file, shot.width + 'x' + shot.height, url);
+      await runChrome(url, shot.width, shot.height, png);
+      if (!existsSync(png)) throw new Error('chrome produced no png for ' + shot.file);
+      const info = await downsample(png, jpg, shot.targetW, shot.targetH);
+      console.log('  ->', info);
+      unlinkSync(png);
+    }
+    console.log('done:', shots.length, 'screenshots in', outDir);
+  } finally {
+    server.kill('SIGTERM');
+  }
+}
+
+main().catch((err) => {
+  console.error('shots failed:', err.message);
+  process.exit(1);
+});
