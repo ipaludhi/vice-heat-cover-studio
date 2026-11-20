@@ -1,292 +1,297 @@
-// LEONIDA HEAT — editor + export logic (round 3, written fresh).
-// Loads photos, drives the live preview, exports PNG covers in the three
-// post sizes, and renders the ?shot=cover scene the screenshot driver
-// captures. All state lives in this file; the drawing lives in cover.js.
+// LEONIDA HEAT — editor (round 4, written fresh).
+//
+// Wires the preview canvas, the photo strip, layout/grade chips, caption
+// inputs and the PNG exporters to the cover engine in cover.js. Also
+// handles the headless shot modes (?shot=cover / ?shot=editor) that
+// shots.js drives: ?shot=cover draws one cover full-frame at the size the
+// query asks for, with no editor chrome around it.
 
-import { GRADES, LAYOUTS, LAYOUT_LABELS, layoutPanels, renderCover, BAND_TOP } from './cover.js';
+import { drawCover, panelRects, LAYOUTS, GRADES } from './cover.js';
 
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
 const SAMPLES = ['samples/pier.jpg', 'samples/boulevard.jpg'];
 
-const PRESETS = {
-  golden: { layout: 'diagonal', grade: 'sunset', strength: 0.55, title: 'SUNSET HEIST', subtitle: 'LEONIDA • VICE CITY', badge: 'GTA VI', footer: 'A LEONIDA HEAT COVER' },
-  neon: { layout: 'five', grade: 'neon', strength: 0.6, title: 'NEON NIGHTS', subtitle: 'OCEAN DRIVE • 2 AM', badge: 'VICE CITY', footer: 'A LEONIDA HEAT COVER' },
-  dusk: { layout: 'nine', grade: 'dusk', strength: 0.5, title: 'PALM DUSK', subtitle: 'THE KEYS • GOLDEN HOUR', badge: 'EST. 2026', footer: 'A LEONIDA HEAT COVER' },
-};
-
-const EXPORT_SIZES = [
-  { name: 'square', w: 1080, h: 1080, label: '1080 × 1080' },
-  { name: 'portrait', w: 1080, h: 1350, label: '1080 × 1350' },
-  { name: 'wide', w: 1920, h: 1080, label: '1920 × 1080' },
-];
-
 const state = {
+  photos: [],          // HTMLImageElement[]
+  photoNames: [],
+  panelPhotos: [0, 1, 0, 1, 0, 1, 0, 1, 0],
+  zooms: [1, 1, 1, 1, 1, 1, 1, 1, 1],
+  pans: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+  flips: [false, false, false, false, false, false, false, false, false],
   layout: 'diagonal',
   grade: 'sunset',
-  strength: 0.55,
+  gradeStrength: 0.55,
   title: 'SUNSET HEIST',
-  subtitle: 'LEONIDA • VICE CITY',
+  subtitle: 'LEONIDA HEAT',
   badge: 'GTA VI',
-  footer: 'A LEONIDA HEAT COVER',
-  photos: [],          // loaded HTMLImageElements
-  panels: [],         // per-panel { photo, zoom, panX, panY, flip }
-  activePanel: 0,
+  footer: 'VICE CITY • LEONIDA',
+  selected: 0,
 };
-
-let previewCanvas = null;
-let previewCtx = null;
-
-function $(id) { return document.getElementById(id); }
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('could not load ' + src));
+    img.onerror = () => reject(new Error(`cannot load ${src}`));
     img.src = src;
   });
 }
 
-async function loadSamples() {
-  const loaded = [];
-  for (const src of SAMPLES) {
-    try {
-      loaded.push(await loadImage(src));
-    } catch (e) {
-      console.warn('sample failed:', src, e);
-    }
-  }
-  return loaded;
+function currentOpts() {
+  return {
+    photos: state.photos,
+    panelPhotos: state.panelPhotos,
+    zooms: state.zooms,
+    pans: state.pans,
+    flips: state.flips,
+    layout: state.layout,
+    grade: state.grade,
+    gradeStrength: state.gradeStrength,
+    title: state.title,
+    subtitle: state.subtitle,
+    badge: state.badge,
+    footer: state.footer,
+  };
 }
 
-function defaultPanels(count) {
-  const panels = [];
-  for (let i = 0; i < count; i++) {
-    panels.push({ photo: i % Math.max(1, state.photos.length), zoom: 1, panX: 0, panY: 0, flip: false });
-  }
-  return panels;
+const preview = $('preview');
+const pctx = preview.getContext('2d');
+
+function renderPreview() {
+  if (!state.photos.length) return;
+  const W = preview.width, H = preview.height;
+  drawCover(pctx, W, H, currentOpts());
 }
 
-function ensurePanels() {
-  const artH = 900 * BAND_TOP;
-  const need = layoutPanels(state.layout, 900, Math.round(artH)).length;
-  while (state.panels.length < need) {
-    state.panels.push({ photo: state.panels.length % Math.max(1, state.photos.length), zoom: 1, panX: 0, panY: 0, flip: false });
-  }
-  state.panels.length = need;
-  if (state.activePanel >= need) state.activePanel = 0;
+function renderExport(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  drawCover(c.getContext('2d'), w, h, currentOpts());
+  return c;
 }
 
-function drawPreview() {
-  if (!previewCanvas) return;
-  const size = 900;
-  previewCanvas.width = size;
-  previewCanvas.height = size;
-  ensurePanels();
-  renderCover(previewCanvas, state.photos, {
-    layout: state.layout, grade: state.grade, strength: state.strength,
-    title: state.title, subtitle: state.subtitle, badge: state.badge,
-    footer: state.footer, panels: state.panels,
-  });
-  syncPanelControls();
-}
-
-// In shot-cover mode the export canvas is already final; a resize after
-// boot must not redraw it as the square editor preview.
-function render() {
-  if (document.body.classList.contains('shot-cover')) return;
-  drawPreview();
-}
-
-function chipRow(el, items, current, onPick) {
-  el.innerHTML = '';
-  items.forEach((item) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'chip' + (item.value === current ? ' on' : '');
-    b.textContent = item.label;
-    b.addEventListener('click', () => onPick(item.value));
-    el.appendChild(b);
-  });
-}
-
-function syncChips() {
-  chipRow($('layoutChips'), LAYOUTS.map((v) => ({ value: v, label: LAYOUT_LABELS[v] })), state.layout, (v) => {
-    state.layout = v; render(); syncChips();
-  });
-  chipRow($('gradeChips'), Object.keys(GRADES).map((v) => ({ value: v, label: GRADES[v].label })), state.grade, (v) => {
-    state.grade = v; render(); syncChips();
-  });
-  chipRow($('presetChips'), Object.keys(PRESETS).map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })), '', (v) => {
-    Object.assign(state, PRESETS[v]);
-    $('titleInput').value = state.title;
-    $('subtitleInput').value = state.subtitle;
-    $('badgeInput').value = state.badge;
-    $('strengthInput').value = state.strength;
-    render(); syncChips();
-  });
-}
-
-function syncPanelControls() {
-  const spec = state.panels[state.activePanel];
-  if (!spec) return;
-  $('panelLabel').textContent = `Panel ${state.activePanel + 1} of ${state.panels.length}`;
-  $('photoSelect').innerHTML = '';
-  state.photos.forEach((img, i) => {
-    const o = document.createElement('option');
-    o.value = String(i);
-    o.textContent = `Photo ${i + 1}${i < SAMPLES.length ? ' (sample)' : ' (upload)'}`;
-    if (i === spec.photo) o.selected = true;
-    $('photoSelect').appendChild(o);
-  });
-  $('zoomInput').value = spec.zoom;
-  $('flipInput').checked = spec.flip;
-}
-
-function bindEditor() {
-  $('titleInput').addEventListener('input', (e) => { state.title = e.target.value; render(); });
-  $('subtitleInput').addEventListener('input', (e) => { state.subtitle = e.target.value; render(); });
-  $('badgeInput').addEventListener('input', (e) => { state.badge = e.target.value; render(); });
-  $('strengthInput').addEventListener('input', (e) => { state.strength = Number(e.target.value); render(); });
-  $('photoSelect').addEventListener('change', (e) => {
-    state.panels[state.activePanel].photo = Number(e.target.value); render();
-  });
-  $('zoomInput').addEventListener('input', (e) => {
-    state.panels[state.activePanel].zoom = Number(e.target.value); render();
-  });
-  $('flipInput').addEventListener('change', (e) => {
-    state.panels[state.activePanel].flip = e.target.checked; render();
-  });
-  $('prevPanel').addEventListener('click', () => {
-    state.activePanel = (state.activePanel - 1 + state.panels.length) % state.panels.length;
-    render();
-  });
-  $('nextPanel').addEventListener('click', () => {
-    state.activePanel = (state.activePanel + 1) % state.panels.length;
-    render();
-  });
-  $('fileInput').addEventListener('change', async (e) => {
-    for (const file of e.target.files) {
-      if (state.photos.length >= 4) break;
-      const url = URL.createObjectURL(file);
-      try {
-        state.photos.push(await loadImage(url));
-      } catch (err) {
-        console.warn('upload failed:', file.name, err);
-      }
-    }
-    ensurePanels();
-    render();
-  });
-  $('exportSquare').addEventListener('click', () => exportCover(EXPORT_SIZES[0]));
-  $('exportPortrait').addEventListener('click', () => exportCover(EXPORT_SIZES[1]));
-  $('exportWide').addEventListener('click', () => exportCover(EXPORT_SIZES[2]));
-  $('exportAll').addEventListener('click', exportAll);
-
-  // Drag to pan the active panel, wheel to zoom it.
-  let dragging = false, lastX = 0, lastY = 0;
-  previewCanvas.addEventListener('pointerdown', (e) => {
-    dragging = true; lastX = e.clientX; lastY = e.clientY;
-    previewCanvas.setPointerCapture(e.pointerId);
-  });
-  previewCanvas.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const spec = state.panels[state.activePanel];
-    const rect = previewCanvas.getBoundingClientRect();
-    spec.panX += ((e.clientX - lastX) / rect.width) * 1.2;
-    spec.panY += ((e.clientY - lastY) / rect.height) * 1.2;
-    spec.panX = Math.max(-1, Math.min(1, spec.panX));
-    spec.panY = Math.max(-1, Math.min(1, spec.panY));
-    lastX = e.clientX; lastY = e.clientY;
-    render();
-  });
-  previewCanvas.addEventListener('pointerup', () => { dragging = false; });
-  previewCanvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const spec = state.panels[state.activePanel];
-    spec.zoom = Math.max(1, Math.min(3, spec.zoom * (e.deltaY < 0 ? 1.08 : 0.92)));
-    $('zoomInput').value = spec.zoom;
-    render();
-  }, { passive: false });
-}
-
-function exportCover(size) {
-  const canvas = document.createElement('canvas');
-  canvas.width = size.w;
-  canvas.height = size.h;
-  ensurePanels();
-  renderCover(canvas, state.photos, {
-    layout: state.layout, grade: state.grade, strength: state.strength,
-    title: state.title, subtitle: state.subtitle, badge: state.badge,
-    footer: state.footer, panels: state.panels,
-  });
+function download(canvas, name) {
   canvas.toBlob((blob) => {
-    if (!blob) return;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `leonida-heat-${size.name}-${size.w}x${size.h}.png`;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }, 'image/png');
 }
 
-function exportAll() {
-  EXPORT_SIZES.forEach((size, i) => {
-    setTimeout(() => exportCover(size), i * 400);
-  });
+function slug(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cover';
 }
 
-// Shot-cover scene: the app draws one exported cover full-frame at the
-// window's size, for the screenshot driver. Query params: size=WxH,
-// layout=, grade=. The resize listener is skipped in this mode (see
-// render()), so a late resize cannot overwrite the shot canvas.
-async function bootShotCover() {
-  const params = new URLSearchParams(location.search);
-  const size = (params.get('size') || '1920x1080').split('x').map(Number);
-  const w = size[0] || 1920, h = size[1] || 1080;
+function exportSize(w, h, tag) {
+  download(renderExport(w, h), `leonida-heat-${slug(state.title)}-${tag}.png`);
+}
+
+// ---- shot mode (headless) ----
+async function shotMode() {
+  const shot = params.get('shot');
+  if (shot !== 'cover') return false;
+  await loadSamples();
+  const size = (params.get('size') || '1280x720').split('x');
+  const W = parseInt(size[0], 10) || 1280;
+  const H = parseInt(size[1], 10) || 720;
   state.layout = params.get('layout') || state.layout;
   state.grade = params.get('grade') || state.grade;
-  // The shot canvas must be the ONLY thing on the page: clear the editor
-  // shell first, or the canvas lands below the fold and the screenshot
-  // captures the empty editor instead of the cover.
   document.body.innerHTML = '';
   document.body.style.margin = '0';
-  document.body.classList.add('shot-cover');
-  const canvas = document.createElement('canvas');
-  canvas.id = 'shotCanvas';
-  canvas.width = w;
-  canvas.height = h;
-  canvas.style.width = '100vw';
-  canvas.style.height = '100vh';
-  canvas.style.display = 'block';
-  document.body.appendChild(canvas);
-  ensurePanels();
-  try { await document.fonts.load('100px Anton'); } catch (e) { /* fall back */ }
-  renderCover(canvas, state.photos, {
-    layout: state.layout, grade: state.grade, strength: state.strength,
-    title: state.title, subtitle: state.subtitle, badge: state.badge,
-    footer: state.footer, panels: state.panels,
-  });
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  c.style.display = 'block';
+  document.body.appendChild(c);
+  drawCover(c.getContext('2d'), W, H, currentOpts());
   document.title = 'shot-ready';
+  return true;
 }
 
-async function boot() {
-  previewCanvas = $('preview');
-  state.photos = await loadSamples();
-  state.panels = defaultPanels(9);
-  const params = new URLSearchParams(location.search);
-  if (params.get('shot') === 'cover') {
-    await bootShotCover();
-    return;
+async function loadSamples() {
+  if (state.photos.length) return;
+  for (const src of SAMPLES) {
+    try {
+      const img = await loadImage(src);
+      state.photos.push(img);
+      state.photoNames.push(src.split('/').pop());
+    } catch (e) { /* sample missing: editor still works with uploads */ }
   }
-  try { await document.fonts.load('100px Anton'); } catch (e) { /* fall back */ }
-  bindEditor();
-  syncChips();
-  render();
-  window.addEventListener('resize', () => {
-    // In shot-cover mode the export canvas is already final; a resize
-    // must not redraw the stage as the square preview.
-    if (!document.body.classList.contains('shot-cover')) render();
+}
+
+// ---- editor UI ----
+function buildChips() {
+  const lc = $('layout-chips');
+  Object.entries(LAYOUTS).forEach(([key, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.dataset.layout = key;
+    b.classList.toggle('on', key === state.layout);
+    b.onclick = () => {
+      state.layout = key;
+      state.selected = 0;
+      buildChips(); syncPanelCard(); renderPreview();
+    };
+    lc.appendChild(b);
+  });
+  const gc = $('grade-chips');
+  Object.entries(GRADES).forEach(([key, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.dataset.grade = key;
+    b.classList.toggle('on', key === state.grade);
+    b.onclick = () => {
+      state.grade = key;
+      buildChips(); renderPreview();
+    };
+    gc.appendChild(b);
   });
 }
 
-document.addEventListener('DOMContentLoaded', boot);
+function buildPhotoStrip() {
+  const strip = $('photo-strip');
+  strip.innerHTML = '';
+  state.photos.forEach((img, i) => {
+    const el = document.createElement('img');
+    el.src = img.src;
+    el.alt = state.photoNames[i] || `photo ${i + 1}`;
+    el.classList.toggle('on', state.panelPhotos[state.selected] === i);
+    el.onclick = () => {
+      state.panelPhotos[state.selected] = i;
+      buildPhotoStrip(); syncPanelCard(); renderPreview();
+    };
+    strip.appendChild(el);
+  });
+  const sel = $('panel-photo');
+  sel.innerHTML = '';
+  state.photos.forEach((img, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = state.photoNames[i] || `Photo ${i + 1}`;
+    sel.appendChild(opt);
+  });
+  sel.value = String(state.panelPhotos[state.selected] ?? 0);
+}
+
+function syncPanelCard() {
+  const i = state.selected;
+  $('panel-name').textContent = String(i + 1);
+  $('panel-photo').value = String(state.panelPhotos[i] ?? 0);
+  $('panel-zoom').value = String(Math.round((state.zooms[i] || 1) * 100));
+  $('zoom-val').textContent = `${Math.round((state.zooms[i] || 1) * 100)}%`;
+  $('panel-flip').checked = !!state.flips[i];
+  buildPhotoStrip();
+}
+
+function wireEditor() {
+  $('photo-input').addEventListener('change', async (e) => {
+    for (const file of e.target.files) {
+      if (state.photos.length >= 4) break;
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await loadImage(url);
+        state.photos.push(img);
+        state.photoNames.push(file.name);
+      } catch { /* skip unreadable files */ }
+    }
+    buildPhotoStrip(); renderPreview();
+  });
+
+  $('grade-strength').addEventListener('input', (e) => {
+    state.gradeStrength = Number(e.target.value) / 100;
+    $('strength-val').textContent = `${e.target.value}%`;
+    renderPreview();
+  });
+  const bindText = (id, key) => {
+    $(id).addEventListener('input', (e) => { state[key] = e.target.value; renderPreview(); });
+  };
+  bindText('in-title', 'title');
+  bindText('in-subtitle', 'subtitle');
+  bindText('in-badge', 'badge');
+  bindText('in-footer', 'footer');
+
+  $('panel-photo').addEventListener('change', (e) => {
+    state.panelPhotos[state.selected] = Number(e.target.value);
+    buildPhotoStrip(); renderPreview();
+  });
+  $('panel-zoom').addEventListener('input', (e) => {
+    state.zooms[state.selected] = Number(e.target.value) / 100;
+    $('zoom-val').textContent = `${e.target.value}%`;
+    renderPreview();
+  });
+  $('panel-flip').addEventListener('change', (e) => {
+    state.flips[state.selected] = e.target.checked;
+    renderPreview();
+  });
+
+  const preset = (layout, grade, strength) => () => {
+    state.layout = layout; state.grade = grade; state.gradeStrength = strength;
+    $('grade-strength').value = String(Math.round(strength * 100));
+    $('strength-val').textContent = `${Math.round(strength * 100)}%`;
+    buildChips(); renderPreview();
+  };
+  $('preset-sunset').onclick = preset('diagonal', 'sunset', 0.55);
+  $('preset-neon').onclick = preset('five', 'neon', 0.6);
+  $('preset-noir').onclick = preset('solo', 'mono', 0.7);
+
+  $('export-square').onclick = () => exportSize(1080, 1080, '1080x1080');
+  $('export-portrait').onclick = () => exportSize(1080, 1350, '1080x1350');
+  $('export-wide').onclick = () => exportSize(1920, 1080, '1920x1080');
+  $('export-all').onclick = () => {
+    exportSize(1080, 1080, '1080x1080');
+    setTimeout(() => exportSize(1080, 1350, '1080x1350'), 300);
+    setTimeout(() => exportSize(1920, 1080, '1920x1080'), 600);
+  };
+
+  // Click a panel to select it; drag to pan its photo; wheel to zoom.
+  let drag = null;
+  preview.addEventListener('pointerdown', (e) => {
+    const r = preview.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * preview.width;
+    const y = (e.clientY - r.top) / r.height * preview.height;
+    const artH = preview.height * 0.735;
+    const rects = panelRects(state.layout, preview.width, artH);
+    const idx = rects.findIndex((rc) => x >= rc.x && x <= rc.x + rc.w && y >= rc.y && y <= rc.y + rc.h);
+    state.selected = idx >= 0 ? idx : 0;
+    drag = { x, y, px: state.pans[state.selected][0], py: state.pans[state.selected][1] };
+    syncPanelCard();
+    preview.setPointerCapture(e.pointerId);
+  });
+  preview.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const r = preview.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * preview.width;
+    const y = (e.clientY - r.top) / r.height * preview.height;
+    const i = state.selected;
+    state.pans[i] = [
+      Math.max(-1, Math.min(1, drag.px + (x - drag.x) / preview.width * 2)),
+      Math.max(-1, Math.min(1, drag.py + (y - drag.y) / preview.height * 2)),
+    ];
+    renderPreview();
+  });
+  preview.addEventListener('pointerup', () => { drag = null; });
+  preview.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const i = state.selected;
+    const z = Math.max(1, Math.min(2.2, (state.zooms[i] || 1) - Math.sign(e.deltaY) * 0.08));
+    state.zooms[i] = z;
+    $('panel-zoom').value = String(Math.round(z * 100));
+    $('zoom-val').textContent = `${Math.round(z * 100)}%`;
+    renderPreview();
+  }, { passive: false });
+}
+
+// ---- boot ----
+(async () => {
+  if (await shotMode()) return;
+  await loadSamples();
+  buildChips();
+  buildPhotoStrip();
+  syncPanelCard();
+  wireEditor();
+  renderPreview();
+})();

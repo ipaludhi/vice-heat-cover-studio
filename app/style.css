@@ -1,186 +1,88 @@
-@font-face {
-  font-family: 'Anton';
-  src: url('fonts/Anton-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
+/* LEONIDA HEAT — editor styles (round 4, written fresh). */
 * { box-sizing: border-box; }
-
+:root {
+  --bg: #0d0618;
+  --bg2: #1a0b2e;
+  --card: #221040;
+  --line: #3d2273;
+  --ink: #f4f0ff;
+  --muted: #b9a8e0;
+  --pink: #ff2e88;
+  --gold: #ffb347;
+  --teal: #37f5e6;
+}
+html, body { margin: 0; padding: 0; }
 body {
-  margin: 0;
-  background: #160a1c;
-  color: #f7f2e8;
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+  color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100vh;
 }
-
-body.shot-cover { background: #000; }
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 22px;
-  background: linear-gradient(90deg, #1c0a20, #3a0f2e 60%, #7a1e4d);
-  border-bottom: 3px solid #ff2e88;
+.top {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 12px 18px;
+  border-bottom: 2px solid var(--line);
+  background: linear-gradient(90deg, #2b1055, #7b1e5b);
+  flex-wrap: wrap;
 }
-
-.brand-mark {
-  width: 52px;
-  height: 52px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ffe08a, #ff5e62);
-  color: #1c0a20;
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.logo {
   font-family: Anton, "Arial Black", sans-serif;
-  font-size: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 26px; letter-spacing: 1px;
+  background: linear-gradient(90deg, #fff7d6, #ffb347, #ff5e62);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-
-.brand h1 {
-  margin: 0;
-  font-family: Anton, "Arial Black", sans-serif;
-  font-size: 30px;
-  letter-spacing: 2px;
-  color: #ffe08a;
+.tag { color: var(--teal); font-weight: 700; letter-spacing: 2px; font-size: 12px; text-transform: uppercase; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+button {
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; font: inherit; font-weight: 600; cursor: pointer;
 }
-
-.tagline { margin: 2px 0 0; color: #ffd7ec; font-size: 13px; }
-
-.pill {
-  margin-left: auto;
-  border: 1px solid #7df9ff;
-  color: #7df9ff;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  letter-spacing: 1px;
-}
-
+button:hover { border-color: var(--pink); }
+button.primary { background: var(--pink); border-color: var(--pink); color: #fff; }
+button.on { background: var(--pink); border-color: var(--pink); color: #fff; }
 .studio {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) 340px;
-  gap: 22px;
-  padding: 22px;
-  max-width: 1280px;
-  margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px; padding: 16px 18px; max-width: 1280px; margin: 0 auto;
 }
-
-.preview-col { min-width: 0; }
-
-#preview {
-  width: 100%;
-  height: auto;
-  display: block;
-  border: 3px solid #ff2e88;
-  border-radius: 6px;
-  background: #000;
-  cursor: grab;
-  touch-action: none;
+.stage-col { min-width: 0; }
+.stage-wrap {
+  background: #000; border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px; text-align: center;
 }
-
-.hint { color: #c9b8c4; font-size: 13px; }
-
-.panel-nav {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  justify-content: center;
-  margin-top: 10px;
+#preview { max-width: 100%; height: auto; display: block; margin: 0 auto; cursor: grab; touch-action: none; }
+#preview:active { cursor: grabbing; }
+.hint { color: var(--muted); font-size: 12px; margin: 8px 0 2px; }
+.export-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.panel-col { display: flex; flex-direction: column; gap: 12px; }
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px;
 }
-
-.panel-nav span { min-width: 120px; text-align: center; }
-
-.controls h2 {
-  font-family: Anton, "Arial Black", sans-serif;
-  font-size: 16px;
-  letter-spacing: 2px;
-  color: #7df9ff;
-  margin: 18px 0 8px;
+.card h2 { margin: 2px 0 10px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); }
+.card label { display: block; margin: 8px 0; font-weight: 600; font-size: 13px; }
+.card label.row { display: flex; align-items: center; gap: 8px; }
+.card input[type="text"], .card select {
+  width: 100%; margin-top: 4px; padding: 8px; border-radius: 8px;
+  border: 1px solid var(--line); background: #12081f; color: var(--ink); font: inherit;
 }
-
-.controls h2:first-child { margin-top: 0; }
-
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-
-.chip {
-  border: 1px solid #7a5a70;
-  background: #2a1226;
-  color: #f7f2e8;
-  border-radius: 999px;
-  padding: 7px 12px;
-  font-size: 13px;
-  cursor: pointer;
+.card input[type="range"] { width: 100%; accent-color: var(--pink); }
+.upload {
+  display: block; text-align: center; padding: 10px; border: 2px dashed var(--line);
+  border-radius: 10px; cursor: pointer; font-weight: 700;
 }
-
-.chip.on {
-  background: #ff2e88;
-  border-color: #ff2e88;
-  color: #fff;
+.upload input { display: none; }
+.photo-strip { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.photo-strip img {
+  width: 64px; height: 64px; object-fit: cover; border-radius: 8px;
+  border: 2px solid var(--line); cursor: pointer;
 }
-
-.controls label {
-  display: block;
-  font-size: 13px;
-  color: #e8d5e0;
-  margin: 8px 0;
-}
-
-.controls input[type="text"],
-.controls select {
-  width: 100%;
-  margin-top: 4px;
-  padding: 9px 10px;
-  border-radius: 6px;
-  border: 1px solid #7a5a70;
-  background: #fff;
-  color: #1c0a20;
-  font-size: 14px;
-}
-
-.controls input[type="range"] { width: 100%; }
-
-.controls .check { display: flex; gap: 8px; align-items: center; }
-
-.controls button {
-  border: 1px solid #7a5a70;
-  background: #2a1226;
-  color: #f7f2e8;
-  border-radius: 6px;
-  padding: 9px 12px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.controls button.primary,
-.exports button.primary {
-  background: #ff2e88;
-  border-color: #ff2e88;
-  color: #fff;
-  font-weight: bold;
-}
-
-.upload { cursor: pointer; }
-
-.upload input { display: block; margin-top: 6px; }
-
-.exports {
-  display: grid;
-  gap: 8px;
-}
-
-.exports button { width: 100%; }
-
-.fine {
-  color: #a98ba0;
-  font-size: 12px;
-  padding: 0 22px 22px;
-  text-align: center;
-}
-
-@media (max-width: 860px) {
+.photo-strip img.on { border-color: var(--pink); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button { font-size: 12px; padding: 6px 9px; }
+.note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.foot { text-align: center; color: var(--muted); font-size: 12px; padding: 14px; }
+@media (max-width: 900px) {
   .studio { grid-template-columns: 1fr; }
-  .pill { display: none; }
 }

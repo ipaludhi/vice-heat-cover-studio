@@ -7,80 +7,72 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="brand">
-  <div class="brand-mark">LH</div>
-  <div>
-    <h1>LEONIDA HEAT</h1>
-    <p class="tagline">Vice Cover Studio — turn any photo into GTA-style cover art</p>
+<header class="top">
+  <div class="brand"><span class="logo">LEONIDA HEAT</span><span class="tag">Vice Cover Studio</span></div>
+  <div class="top-actions">
+    <button id="preset-sunset" type="button">Sunset Heist</button>
+    <button id="preset-neon" type="button">Neon Nights</button>
+    <button id="preset-noir" type="button">Mono Noir</button>
   </div>
-  <span class="pill">OFFLINE • NO UPLOAD</span>
 </header>
 
 <main class="studio">
-  <section class="preview-col">
-    <canvas id="preview" width="900" height="900" aria-label="Cover preview"></canvas>
-    <p class="hint">Drag the preview to pan the active panel • Scroll to zoom • Pick a panel below to edit it</p>
-    <div class="panel-nav">
-      <button id="prevPanel" type="button">← Panel</button>
-      <span id="panelLabel">Panel 1 of 6</span>
-      <button id="nextPanel" type="button">Panel →</button>
+  <section class="stage-col">
+    <div class="stage-wrap">
+      <canvas id="preview" width="900" height="900"></canvas>
+      <p class="hint">Drag on a panel to pan its photo · scroll to zoom · pick a panel below</p>
+    </div>
+    <div class="export-row">
+      <button id="export-square" type="button">Export 1080×1080</button>
+      <button id="export-portrait" type="button">Export 1080×1350</button>
+      <button id="export-wide" type="button">Export 1920×1080</button>
+      <button id="export-all" type="button" class="primary">Export All 3 sizes</button>
     </div>
   </section>
 
-  <section class="controls">
-    <h2>Layout</h2>
-    <div id="layoutChips" class="chips"></div>
+  <aside class="panel-col">
+    <section class="card">
+      <h2>Photos</h2>
+      <label class="upload">Add photos (up to 4)
+        <input id="photo-input" type="file" accept="image/*" multiple>
+      </label>
+      <div id="photo-strip" class="photo-strip"></div>
+      <p class="note">Samples load by default. Your photos never leave this machine.</p>
+    </section>
 
-    <h2>Grade</h2>
-    <div id="gradeChips" class="chips"></div>
+    <section class="card">
+      <h2>Layout</h2>
+      <div id="layout-chips" class="chips"></div>
+      <h2>Grade</h2>
+      <div id="grade-chips" class="chips"></div>
+      <label>Grade strength <span id="strength-val">55%</span>
+        <input id="grade-strength" type="range" min="0" max="100" value="55">
+      </label>
+    </section>
 
-    <h2>Preset</h2>
-    <div id="presetChips" class="chips"></div>
+    <section class="card">
+      <h2>Caption</h2>
+      <label>Title <input id="in-title" type="text" value="SUNSET HEIST" maxlength="24"></label>
+      <label>Subtitle <input id="in-subtitle" type="text" value="LEONIDA HEAT" maxlength="32"></label>
+      <label>Badge <input id="in-badge" type="text" value="GTA VI" maxlength="12"></label>
+      <label>Footer <input id="in-footer" type="text" value="VICE CITY • LEONIDA" maxlength="32"></label>
+    </section>
 
-    <h2>Caption</h2>
-    <label>Title
-      <input id="titleInput" type="text" value="SUNSET HEIST" maxlength="24">
-    </label>
-    <label>Subtitle
-      <input id="subtitleInput" type="text" value="LEONIDA • VICE CITY" maxlength="40">
-    </label>
-    <label>Badge
-      <input id="badgeInput" type="text" value="GTA VI" maxlength="14">
-    </label>
-    <label>Grade strength
-      <input id="strengthInput" type="range" min="0" max="1" step="0.05" value="0.55">
-    </label>
-
-    <h2>Active panel</h2>
-    <label>Photo
-      <select id="photoSelect"></select>
-    </label>
-    <label>Zoom
-      <input id="zoomInput" type="range" min="1" max="3" step="0.05" value="1">
-    </label>
-    <label class="check"><input id="flipInput" type="checkbox"> Flip horizontally</label>
-
-    <h2>Your photos</h2>
-    <label class="upload">Add photos (up to 4)
-      <input id="fileInput" type="file" accept="image/*" multiple>
-    </label>
-    <p class="fine">Photos stay on your machine. Two Vice City samples load by default.</p>
-
-    <h2>Export PNG</h2>
-    <div class="exports">
-      <button id="exportSquare" type="button">Square 1080 × 1080</button>
-      <button id="exportPortrait" type="button">Portrait 1080 × 1350</button>
-      <button id="exportWide" type="button">Wide 1920 × 1080</button>
-      <button id="exportAll" type="button" class="primary">Export All 3 sizes</button>
-    </div>
-  </section>
+    <section class="card">
+      <h2>Selected panel <span id="panel-name">1</span></h2>
+      <label>Photo
+        <select id="panel-photo"></select>
+      </label>
+      <label>Zoom <span id="zoom-val">100%</span>
+        <input id="panel-zoom" type="range" min="100" max="220" value="100">
+      </label>
+      <label class="row"><input id="panel-flip" type="checkbox"> Flip horizontally</label>
+      <p class="note">Click a panel on the preview to select it, then drag to pan.</p>
+    </section>
+  </aside>
 </main>
 
-<footer class="fine">
-  LEONIDA HEAT is an original fan-made cover tool. Not affiliated with Rockstar Games.
-  Lettering: Anton (SIL Open Font License). Sample photos are AI-made, no real people.
-</footer>
-
+<footer class="foot">LEONIDA HEAT — an original fan-made cover tool. No Rockstar Games logo, artwork or fonts. Font: Anton (OFL).</footer>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

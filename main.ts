@@ -1,4 +1,4 @@
-// LEONIDA HEAT — build entrypoint (round 3, written fresh).
+// LEONIDA HEAT — build entrypoint (round 4, written fresh).
 //
 // Stages app/ and screenshots/ into the grader output directory and asks
 // the kit's buildDossier helper to write dossier.json. Run with Node 22:
@@ -9,8 +9,9 @@
 // filesystem and runs as user 65534, so this file NEVER deletes or
 // recreates the output directory itself: it only makes sure the directory
 // exists and writes into it. Removing the mount point fails (EACCES/EBUSY)
-// and the run exits 1. Stale children inside the directory may be cleared
-// one by one, never the directory itself. Nothing here touches the network.
+// and the run exits 1 — that is exactly what killed round 2. Stale
+// children inside the directory may be cleared one by one, never the
+// directory itself. Nothing here touches the network.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -44,11 +45,13 @@ function tallyTree(dir) {
   return { files, bytes };
 }
 
-function clearChild(out, name) {
-  const target = join(out, name);
-  if (existsSync(target)) {
+function clearChildren(out) {
+  // Clear every stale entry INSIDE the output directory, one by one.
+  // The directory itself is never removed (the grader mounts it).
+  for (const entry of readdirSync(out)) {
+    const target = join(out, entry);
     rmSync(target, { recursive: true, force: true });
-    console.log(`cleared stale ${name}/`);
+    console.log(`cleared stale ${entry}`);
   }
 }
 
@@ -69,9 +72,7 @@ function main() {
   // The output directory itself is sacred: the grader mounts it, so it is
   // never removed or recreated, only ensured to exist.
   mkdirSync(out, { recursive: true });
-  clearChild(out, 'app');
-  clearChild(out, 'screenshots');
-  clearChild(out, 'dossier.json');
+  clearChildren(out);
 
   const appTally = stageDir(appDir, 'app', out);
   const shotsTally = stageDir(shotsDir, 'screenshots', out);
@@ -87,14 +88,11 @@ function main() {
   });
   const dossierPath = join(out, 'dossier.json');
   writeFileSync(dossierPath, dossier);
-  // Fail loudly here (with a clear message) if the write did not land,
-  // instead of exiting 0 and letting the grader fail later on a missing
-  // dossier with no clue why.
-  const written = statSync(dossierPath);
-  if (written.size === 0) {
-    throw new Error('dossier.json was written empty');
+  const landed = statSync(dossierPath);
+  if (landed.size === 0 || landed.size !== dossier.length) {
+    throw new Error(`dossier.json did not land: ${landed.size} bytes on disk, ${dossier.length} expected`);
   }
-  console.log(`wrote dossier.json (${dossier.length} bytes, verified ${written.size} bytes on disk)`);
+  console.log(`wrote dossier.json (${dossier.length} bytes, verified ${landed.size} bytes on disk)`);
   console.log('build ok');
 }
 
