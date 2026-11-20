@@ -1,114 +1,95 @@
-// LEONIDA HEAT — screenshot renderer (fresh code, written for round 2).
-// Serves app/ locally, screenshots the editor + covers with headless
-// Chrome, then downsamples each frame with Python/PIL to the dossier's
-// limits (long side <= 1280, short side >= 480, each file <= 256 KiB).
-// Usage: node app/src/shots.js [shots.json] [screenshots-dir]
+// LEONIDA HEAT — screenshot driver (round 3, written fresh).
+// Serves app/ on localhost, captures the four shots from shots.json with
+// headless Chrome, and converts each PNG to a JPEG (quality 82, stepping
+// down only if it would exceed the 256 KiB gate cap).
+//
+//   node app/src/shots.js [port]   (default port 8123, server started here)
 
 import { spawn, execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import http from 'node:http';
+import { setTimeout as sleep } from 'node:timers/promises';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const shotsFile = process.argv[2] || join(repoRoot, 'shots.json');
-const outDir = process.argv[3] || join(repoRoot, 'screenshots');
-const PORT = 8099;
-const CHROME = process.env.CHROME || 'google-chrome';
-const MAX_BYTES = 262144;
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, '..', '..');
+const shotsDef = JSON.parse(readFileSync(join(repoRoot, 'shots.json'), 'utf8'));
+const shotsDir = join(repoRoot, 'screenshots');
+const port = Number(process.argv[2] || 8123);
+const CHROME = '/usr/bin/google-chrome'; // Google Chrome stable (reinstalled from the durable .deb after a VM replacement wiped /usr)
 
-const shots = JSON.parse(readFileSync(shotsFile, 'utf8'));
-
-function waitForServer(port, tries = 60) {
-  return new Promise((resolvePromise, reject) => {
-    let left = tries;
-    const tick = () => {
-      const req = http.get({ host: '127.0.0.1', port, path: '/' }, (res) => {
-        res.resume();
-        if (res.statusCode === 200) resolvePromise(true);
-        else retry();
-      });
-      req.on('error', retry);
-      function retry() {
-        if (--left <= 0) reject(new Error('dev server did not answer'));
-        else setTimeout(tick, 500);
-      }
-    };
-    tick();
-  });
-}
-
-function runChrome(url, width, height, pngPath) {
-  return new Promise((resolvePromise, reject) => {
-    const args = [
-      '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
-      '--hide-scrollbars', '--force-device-scale-factor=1',
-      `--window-size=${width},${height}`,
-      `--screenshot=${pngPath}`,
-      '--virtual-time-budget=9000',
-      url,
-    ];
-    execFile(CHROME, args, { timeout: 90000 }, (err) => {
-      if (err) reject(err);
-      else resolvePromise(true);
+function run(cmd, args, opts = {}) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = execFile(cmd, args, { ...opts, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) rejectPromise(new Error(`${cmd} failed: ${stderr || err.message}`));
+      else resolvePromise({ stdout, stderr });
     });
+    child.stdout?.on('data', () => {});
+    child.stderr?.on('data', () => {});
   });
 }
 
-function downsample(pngPath, jpgPath, targetW, targetH) {
-  // PIL: fit inside the target box (long side <= 1280, short side >= 480),
-  // then save JPEG q82, falling back to q70 if still over the byte cap.
+async function waitForServer(url, tries = 40) {
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return;
+    } catch (e) { /* not up yet */ }
+    await sleep(250);
+  }
+  throw new Error('dev server did not come up at ' + url);
+}
+
+function toJpeg(pngPath, jpgPath) {
   const script = [
-    'import sys',
     'from PIL import Image',
-    'src, dst, tw, th = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])',
-    'im = Image.open(src).convert("RGB")',
-    'scale = min(tw / im.width, th / im.height)',
-    'im = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)',
-    'for q in (82, 70, 60):',
-    '    im.save(dst, "JPEG", quality=q)',
-    '    import os',
-    '    if os.path.getsize(dst) <= 262144: break',
-    'print(dst, im.size)',
+    `im = Image.open(${JSON.stringify(pngPath)}).convert("RGB")`,
+    `q = 82`,
+    `while True:`,
+    `    im.save(${JSON.stringify(jpgPath)}, "JPEG", quality=q, optimize=True)`,
+    `    import os`,
+    `    if os.path.getsize(${JSON.stringify(jpgPath)}) <= 262144 or q <= 55:`,
+    `        break`,
+    `    q -= 7`,
+    `print("jpeg", q)`,
   ].join('\n');
-  return new Promise((resolvePromise, reject) => {
-    const tmp = join('/tmp', 'vice-downsample.py');
-    writeFileSync(tmp, script);
-    execFile('python3', [tmp, pngPath, jpgPath, String(targetW), String(targetH)], (err, stdout, stderr) => {
-      if (err) reject(new Error(stderr || err.message));
-      else resolvePromise(stdout.trim());
-    });
-  });
+  return run('python3', ['-c', script]);
+}
+
+async function capture(shot) {
+  const pngPath = join(shotsDir, shot.file.replace(/\.jpe?g$/i, '.png'));
+  const jpgPath = join(shotsDir, shot.file);
+  const url = `http://127.0.0.1:${port}${shot.url}`;
+  await run(CHROME, [
+    '--headless=new', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage',
+    '--hide-scrollbars', '--force-device-scale-factor=1',
+    `--window-size=${shot.width},${shot.height}`,
+    '--virtual-time-budget=10000',
+    `--screenshot=${pngPath}`, url,
+  ]);
+  if (!existsSync(pngPath)) throw new Error('chrome wrote no screenshot for ' + shot.file);
+  await toJpeg(pngPath, jpgPath);
+  unlinkSync(pngPath);
+  console.log(`shot ${shot.file} ${shot.width}x${shot.height} done`);
 }
 
 async function main() {
-  mkdirSync(outDir, { recursive: true });
-  const server = spawn(process.execPath, [join(repoRoot, 'serve.ts'), String(PORT)], {
-    cwd: repoRoot,
-    stdio: ['ignore', 'pipe', 'pipe'],
+  mkdirSync(shotsDir, { recursive: true });
+  const server = spawn('node', [join(repoRoot, 'serve.ts'), String(port)], {
+    stdio: 'inherit',
   });
-  server.stdout.on('data', (d) => process.stdout.write('[serve] ' + d));
-  server.stderr.on('data', (d) => process.stderr.write('[serve] ' + d));
   try {
-    await waitForServer(PORT);
-    for (const shot of shots) {
-      const url = `http://127.0.0.1:${PORT}/?${shot.query}`;
-      const png = join('/tmp', `vice-${shot.file}.png`);
-      const jpg = join(outDir, shot.file);
-      console.log('shot', shot.file, shot.width + 'x' + shot.height, url);
-      await runChrome(url, shot.width, shot.height, png);
-      if (!existsSync(png)) throw new Error('chrome produced no png for ' + shot.file);
-      const info = await downsample(png, jpg, shot.targetW, shot.targetH);
-      console.log('  ->', info);
-      unlinkSync(png);
+    await waitForServer(`http://127.0.0.1:${port}/index.html`);
+    for (const shot of shotsDef.shots) {
+      await capture(shot);
     }
-    console.log('done:', shots.length, 'screenshots in', outDir);
+    console.log('all shots done');
   } finally {
     server.kill('SIGTERM');
   }
 }
 
 main().catch((err) => {
-  console.error('shots failed:', err.message);
+  console.error(err.message);
   process.exit(1);
 });

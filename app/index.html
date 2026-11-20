@@ -1,95 +1,86 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LEONIDA HEAT — Vice Cover Studio</title>
-<meta name="description" content="Turn a photo and a caption into a GTA 6-style cover: multi-panel, sunset grade, bold lettering, PNG export for posts.">
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand"><span class="sun">☀</span> LEONIDA HEAT <em>Vice Cover Studio</em></div>
-  <div class="top-actions">
-    <button id="exportBtn" type="button" class="btn primary">Export PNG</button>
-    <button id="exportAllBtn" type="button" class="btn">Export All 3 Sizes</button>
+<header class="brand">
+  <div class="brand-mark">LH</div>
+  <div>
+    <h1>LEONIDA HEAT</h1>
+    <p class="tagline">Vice Cover Studio — turn any photo into GTA-style cover art</p>
   </div>
+  <span class="pill">OFFLINE • NO UPLOAD</span>
 </header>
 
-<main class="layout">
-  <aside class="controls" aria-label="Cover controls">
-    <section class="card">
-      <h2>1 · Photos</h2>
-      <p class="hint">Up to 4 photos. Click a thumbnail to put it on the selected panel.</p>
-      <div class="row">
-        <label class="btn file" for="photoInput">Upload photos</label>
-        <input id="photoInput" type="file" accept="image/*" multiple hidden>
-        <button id="sampleBtn" type="button" class="btn">Use samples</button>
-      </div>
-      <div id="thumbs" class="thumbs"></div>
-      <p class="hint"><span id="photoCount">0 foto</span> · click the cover to select a panel, drag to pan it</p>
-    </section>
-
-    <section class="card">
-      <h2>2 · Layout</h2>
-      <div id="layoutRow" class="chips"></div>
-    </section>
-
-    <section class="card">
-      <h2>3 · Grade</h2>
-      <div id="gradeRow" class="chips"></div>
-      <label class="slider">Strength <span id="strengthVal">55%</span>
-        <input id="strength" type="range" min="0" max="100" value="55">
-      </label>
-      <div id="presetRow" class="presets"></div>
-    </section>
-
-    <section class="card">
-      <h2>4 · Panel</h2>
-      <label class="slider">Zoom <span id="zoomVal">100%</span>
-        <input id="zoom" type="range" min="50" max="300" value="100">
-      </label>
-      <div class="row">
-        <button id="flipBtn" type="button" class="btn">Flip panel</button>
-        <button id="shuffleBtn" type="button" class="btn">New grain</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>5 · Words</h2>
-      <label class="field">Title
-        <input id="titleInput" type="text" value="SUNSET HEIST" maxlength="24">
-      </label>
-      <label class="field">Subtitle
-        <input id="subtitleInput" type="text" value="a Leonida story" maxlength="48">
-      </label>
-      <label class="field">Badge
-        <input id="badgeInput" type="text" value="LEONIDA" maxlength="16">
-      </label>
-      <label class="field">Footer
-        <input id="footerInput" type="text" value="VICE CITY • EST. 2026" maxlength="48">
-      </label>
-    </section>
-
-    <section class="card">
-      <h2>6 · Export size</h2>
-      <div id="sizeRow" class="chips"></div>
-      <p class="hint">PNG: 1080×1080 feed, 1080×1350 portrait, 1920×1080 wide. Everything runs offline in your browser — photos never leave the device.</p>
-    </section>
-  </aside>
-
-  <section class="preview" aria-label="Cover preview">
-    <div id="stageWrap" class="stage-wrap">
-      <canvas id="stage" width="1080" height="1080"></canvas>
+<main class="studio">
+  <section class="preview-col">
+    <canvas id="preview" width="900" height="900" aria-label="Cover preview"></canvas>
+    <p class="hint">Drag the preview to pan the active panel • Scroll to zoom • Pick a panel below to edit it</p>
+    <div class="panel-nav">
+      <button id="prevPanel" type="button">← Panel</button>
+      <span id="panelLabel">Panel 1 of 6</span>
+      <button id="nextPanel" type="button">Panel →</button>
     </div>
-    <p id="panelCount" class="hint center">4 panels</p>
+  </section>
+
+  <section class="controls">
+    <h2>Layout</h2>
+    <div id="layoutChips" class="chips"></div>
+
+    <h2>Grade</h2>
+    <div id="gradeChips" class="chips"></div>
+
+    <h2>Preset</h2>
+    <div id="presetChips" class="chips"></div>
+
+    <h2>Caption</h2>
+    <label>Title
+      <input id="titleInput" type="text" value="SUNSET HEIST" maxlength="24">
+    </label>
+    <label>Subtitle
+      <input id="subtitleInput" type="text" value="LEONIDA • VICE CITY" maxlength="40">
+    </label>
+    <label>Badge
+      <input id="badgeInput" type="text" value="GTA VI" maxlength="14">
+    </label>
+    <label>Grade strength
+      <input id="strengthInput" type="range" min="0" max="1" step="0.05" value="0.55">
+    </label>
+
+    <h2>Active panel</h2>
+    <label>Photo
+      <select id="photoSelect"></select>
+    </label>
+    <label>Zoom
+      <input id="zoomInput" type="range" min="1" max="3" step="0.05" value="1">
+    </label>
+    <label class="check"><input id="flipInput" type="checkbox"> Flip horizontally</label>
+
+    <h2>Your photos</h2>
+    <label class="upload">Add photos (up to 4)
+      <input id="fileInput" type="file" accept="image/*" multiple>
+    </label>
+    <p class="fine">Photos stay on your machine. Two Vice City samples load by default.</p>
+
+    <h2>Export PNG</h2>
+    <div class="exports">
+      <button id="exportSquare" type="button">Square 1080 × 1080</button>
+      <button id="exportPortrait" type="button">Portrait 1080 × 1350</button>
+      <button id="exportWide" type="button">Wide 1920 × 1080</button>
+      <button id="exportAll" type="button" class="primary">Export All 3 sizes</button>
+    </div>
   </section>
 </main>
 
-<footer class="foot">
-  LEONIDA HEAT — a fan-made cover studio. Not affiliated with Rockstar Games. Original art only, no Rockstar logos or artwork.
+<footer class="fine">
+  LEONIDA HEAT is an original fan-made cover tool. Not affiliated with Rockstar Games.
+  Lettering: Anton (SIL Open Font License). Sample photos are AI-made, no real people.
 </footer>
 
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

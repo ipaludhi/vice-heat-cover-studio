@@ -1,49 +1,148 @@
-# NEXT_TURN_SUBMIT — gta6-cover-art-01 ROUND 2 (turn 2: seal + submit)
+# NEXT TURN — SUBMIT ROUND 3 (gta6-cover-art-01)
 
-## Entry
-- Competition: gta6-cover-art-01 — "Make GTA 6 Cover Art", $250, FREE. Deadline **21 Nov 2026 17:30 WIB (2026-11-21T10:30:00Z)**. Result due 2026-12-07.
-- Title: **LEONIDA HEAT — Vice Cover Studio**
-- Repo: https://github.com/ipaludhi/vice-heat-cover-studio
-- Commit (round 2): see "Remote HEAD" below — filled in by the second commit (this runbook's own commit).
-- Round 1 REJECTED (HTTP 422, id 01a1f441-6f71-7241-8aa5-399fd3ed450c): thinking_reproduces 103/879 lines (11.7% vs 30% bar; main.ts was kit starter byte-for-byte), thinking_revised (no file from 2+ messages), transcripts_witnessed (13 counted files pre-existed the recording). Round 2 is a full fresh rewrite under a new recording to fix exactly those three.
+Entry: "LEONIDA HEAT — Vice Cover Studio", repo
+https://github.com/ipaludhi/vice-heat-cover-studio
+Deadline: 21 Nov 2026 17:30 WIB (2026-11-21T10:30:00Z). Result due 2026-12-07.
 
-## Recording (round 2)
-- Recording id: **01a1f44c-dbac-708c-b816-b78b34a3958e** (started 19 Nov 2026 ~14:54 UTC, node PID 28181, log ~/.makefun/record-gta6-cover-art-01c.log). DO NOT reuse 01a1f3ba or 01a1f3af.
-- The recording is STILL RUNNING at the end of turn 1 — turn 2 must: (1) write muse-usage rows, (2) seal it (kill PID 28181, confirm log says "sealed"), (3) submit.
-- Build sessions under it: session 1 (initial fresh write of all files + run 1 + interim report) and session 2 (this session: bug-fix edits + re-render + commit + push + this runbook). Both began AFTER the recording started. A proactivity background session may also have been witnessed; include its usage row too if it appears in the seal output.
+## Why round 3 exists
 
-## Authorship gates (verified in turn 1 — re-verify before submit)
-- **main.ts is agent-written**: sha256 4448f346028617fbe969f7b41255751af67cc5077bac95bd8522ac9918300d0d vs kit starter main.ts sha256 6ddb810732243d09e64737ab01a2d7979aa039ab86c16239a56da08a253609b7 — DIFFERENT. 71 lines, fresh code (own structure: output dir from MAKEFUN_OUTPUT_DIR, stages app/ + screenshots/, calls buildDossier from ./vendor/makefun-app.ts, writes dossier.json).
-- **Authored lines**: counted files total **1,488 lines** (`wc -l` + 1 line each for single-line JSON files shots.json / .makefun/owner.json): README 58, LICENSE 21, main.ts 71, serve.ts 55, shots.json 1, owner.json 1, app/index.html 95, app/style.css 215, app/src/cover.js 389, app/src/main.js 375, app/src/shots.js 114, app/fonts/OFL.txt 93. All written fresh during recording 01a1f44c (session 1 initial write + session 2 surgical edits). Round-1 total was 879 lines; round-2 code is bigger and ~100% authored in-session (only OFL.txt's 93 upstream license lines are not original prose). Bar is 30% — margin is large.
-- **2+ message revision (thinking_revised)**: 
-  - `app/src/main.js` — session 1 wrote it (message 1), session 2 edited it (guard `render()` to no-op in shot-cover mode + resize listener skip) in a later message, after run 1.
-  - `app/src/cover.js` — session 1 wrote it (message 1), session 2 edited it (five/nine panels constrained to art zone 0.735H + palm 7 fronds / heavier stroke / stronger droop) in a later message, after run 1.
-  - Both files' final content comes from ≥2 messages that write/edit them. (The runbook itself is single-message — that is fine; the check needs SOME file, entrypoint or code it runs, from 2+ messages.)
-- **No pre-existing counted files**: parent deleted all 18 round-1 counted/runbook/screenshot files from the worktree BEFORE the recording started; at recording start only kit files remained (vendor/makefun-app.ts byte-unchanged + app/samples/*.jpg). Session 1 did NOT read round-1 implementation files (no `git show`, no clone, no copy) — all code written fresh from the design brief.
-- **Bug fixed in session 2**: `?shot=cover` frames used to be the 900×900 square editor preview (resize listener redrew the stage after boot). Fixed with the render() guard + resize-listener skip. Five/nine grid bottom rows used to hide behind the title band — now constrained to the art zone above 0.735H. Palms were thin spiders — now 7 fronds, lineWidth 0.13, stronger droop. All 4 shots re-rendered + visually inspected after the fix (see below).
+Round 2 was rejected on ONE check only: `run_completes` — the grader ran
+`node /bot/main.ts` and it exited 1. Cause (reproduced by parent):
+round-2 `main.ts` deleted its own output directory (`rmSync` on
+`MAKEFUN_OUTPUT_DIR`, then `mkdir`). On the grader `/output` is a bind
+mount on a read-only filesystem, user 65534 — deleting it fails
+(EACCES/EBUSY). All authorship/transcript checks in round 2 PASSED
+(92.8% authored). Round 3 is the same design, rebuilt fresh, with that
+bug fixed: `main.ts` NEVER deletes or recreates the output directory —
+only `mkdirSync(out, {recursive:true})`, clears stale children inside it
+one by one, stages `app/` + `screenshots/` into it, writes `dossier.json`,
+and verifies the write landed (statSync, fail loudly if empty).
 
-## Verification evidence (turn 1)
-- Kit check: **4 passed, 0 failed, 17 skipped, 5 at-submission** (`node cli/makefun.mjs check --kit . --repo <repo>` from the kit dir).
-- Determinism: main.ts run 2× to /tmp/det-a and /tmp/det-b, `diff -r` empty.
-- `node --check` passes for cover.js, main.js, shots.js.
-- Secret grep: 0 hits.
-- Font: app/fonts/Anton-Regular.ttf 170,812 bytes, sha256 a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab (upstream Anton, re-downloaded during recording).
-- Screenshots (all re-rendered after the fix, all ≤256 KiB):
-  - 1-cover.jpg 1280×720 / 159,097 B, sha256 04babbcc941cd0950dc386cc258984c6fe2faae8e59b39565fe907687ddfcea3 — true landscape cover, diagonal layout, title SUNSET HEIST fully readable.
-  - 2-editor.jpg 1280×900 / 188,132 B, sha256 2b777ac63e113e5c2b5c95e8c976e827f606dba572b143ce2e0032a73dabe2f7 — editor with all 6 layout chips, 6 grade chips, presets, sliders, Export buttons.
-  - 3-cover-square.jpg 1080×1080 / 253,832 B, sha256 f49d35e45dd31a74c62bffc4c7c8002b861e8e16f11cdf81b6f0c9ba8d2fad91 — five-panel layout, all rows above the band, NEON NIGHTS readable.
-  - 4-cover-portrait.jpg 1024×1280 / 207,371 B, sha256 661e49b1ff3a96c446288f9459999a80347da245da47543bc28ab2741f477099 — nine-grid layout, all 9 cells above the band, PALM DUSK readable.
-- Visual notes (honest): posterize is strong by design (comic style, skin clean at strength 0.55 — not blotchy); palms are stylised silhouettes; editor shot shows the panel section cut at the fold (scrollable editor, normal).
+## Build evidence (all measured in the round-3 build session)
 
-## Remote HEAD
-- Round-1 remote HEAD was f97682524a420e94f1bd9ae0b03b89c5d69ab767. Round-2 code pushed on top of it via push-api (no re-seed). Round-2 code commit: **a45e2310eb18fec6b13f5e6c52afdaf6eed1f36d** (15 files changed). Verified via `git ls-remote` + credential-less clone diff empty.
-- This runbook was then updated in a follow-up commit on top of a45e2310. A further commit on top fixed license_osi (added the `SPDX-License-Identifier: MIT` line to the root LICENSE — the kit check requires the line, license text alone does not count). SUBMIT the current remote HEAD (the HEAD after the license-fix commit) — turn 1's final report names its exact SHA; always confirm with `git ls-remote https://github.com/ipaludhi/vice-heat-cover-studio.git HEAD` before submitting.
+- Recording: `01a1f8d7-00b3-7223-aaf6-8fa21731a712`, node PID 6939, log
+  `~/.makefun/record-gta6-cover-art-01d.log`. Verified ALIVE at
+  2026-11-20T12:15:00Z (19:15 WIB), after all code was written.
+  DO NOT use round-1/round-2 recordings (01a1f3ba, 01a1f44c).
+- Build session agent_id: `c69b6d5e-58c1-4b3a-ba86-6fa4f2a6bead`
+  (side chat 6f717458-90b6-4f09-be0f-7cab41e66811, agent
+  2c248d0d-bc4b-4c0f-8fb3-4ab1ca7de30a). For the muse-usage file at seal
+  time, pull usage rows for this agent_id (and any other agent that
+  touched the recording) from muse.db — same SELECT as the recording
+  log prints. Write to a NEW file
+  `~/.makefun/muse-usage-gta6-cover-art-01-r3.jsonl` (do not reuse the
+  round-1/round-2 files).
+- Code commit (local): `8d9b1783220009722c89dce23783c0c8cf9fca1b`
+  ("Round 3: fresh rebuild with run_completes fix"). The runbook commit
+  on top of it is the local HEAD at push time. Push-api recreates the
+  local HEAD as a NEW remote commit (different SHA, same tree) — the
+  SUBMIT SHA is the remote one printed by push-api, verified below.
+- Kit check (pre-commit, from the kit dir):
+  `node cli/makefun.mjs check --kit . --repo <repo>` → **4 passed,
+  0 failed, 17 skipped, 5 at submission**. Re-run AFTER commit+push
+  (kit check reads committed files); the 5 at-submission items resolve
+  once the new commit is on GitHub.
+- Determinism: `main.ts` run twice to different dirs, `diff -r` empty.
+  Re-run after the final main.ts edit: still empty.
+- Sandbox repro (THE gate — run twice, once before and once after the
+  final main.ts edit): repo copied to `/tmp/grader-r3/bot`, output dir
+  `/tmp/grader-r3/output` bind-mounted to itself, chmod 777, run as
+  user 65534 via setpriv with grader env (TZ=UTC PYTHONHASHSEED=0
+  LANG=C.UTF-8 MAKEFUN_BOT_DIR/MAKEFUN_OUTPUT_DIR, timeout 10):
+  **exit 0 both times**; output contains `app/`, `screenshots/`,
+  `dossier.json` (1,065,660 bytes, verified on disk).
+- Authored lines (counted files, all written fresh in-session):
+  `wc -l` total **1380** + shots.json and .makefun/owner.json are
+  single-line files `wc -l` counts as 0, so **1382 lines** across 12
+  files (README 59, LICENSE 23, main.ts 101, serve.ts 53, shots.json 1,
+  owner.json 1, app/index.html 86, app/style.css 186,
+  app/src/cover.js 392, app/src/main.js 292, app/src/shots.js 95,
+  app/fonts/OFL.txt 93). Target was ~100% vs the 30% bar; round 2 was
+  92.8%. main.ts sha256 `bf3a297deca085735a5ae574695bd24e94d75d040d4a606a38391a7ac7c5601e`
+  differs from kit starter main.ts
+  (`6ddb810732243d09e64737ab01a2d7979aa039ab86c16239a56da08a253609b7`).
+- Secret grep over the repo (excluding .git): **0 hits**.
+- Revisions across 2+ messages (thinking_revised): `main.ts` written in
+  message 1, edited in message 4 (dossier write verification via
+  statSync + fail-loudly); `app/src/cover.js` written in message 1,
+  edited in messages 2 and 3 (striped retro sun on offscreen canvas,
+  smaller corner palms, sun moved to the top-left sky corner so it
+  never covers a face, diagonal wedge narrowed 16% → 10%);
+  `app/src/main.js` written in message 1, edited in message 2
+  (shot-cover mode now clears the editor shell from the body before
+  appending the cover canvas — before that fix, shots 1/3/4 captured
+  the empty editor instead of the cover).
+- What changed vs round 2 (besides the fix): Chrome had to be
+  reinstalled from the durable .deb
+  (`~/workspace/agent-reach/google-chrome-stable_current_amd64.deb` —
+  /usr was wiped by a VM replacement; `~/.local/bin/google-chrome`
+  wrapper works again). `shots.js` now calls `/usr/bin/google-chrome`
+  (the stable binary); the Meta Chromium at /opt/meta-chromium refuses
+  to start ("Hatch WebGL domain policy is required").
 
-## Turn 2 — submit steps (parent)
-1. Gates: `status --competition gta6-cover-art-01` → can submit YES (quota: 1 round used, 4 left today, 19/20 hard limit). `git ls-remote` HEAD must equal the round-2 commit above. Recording 01a1f44c must still be alive (pgrep 28181 + log first line).
-2. Usage rows: query muse.db agent_message_token_usage for the build sessions' agent_ids (session 1 + session 2 + any witnessed background session — check the seal output's session list) and write them to ~/.makefun/muse-usage-gta6-cover-art-01.jsonl (round-2 file; do NOT reuse the round-1 usage file).
-3. Seal: kill PID 28181, confirm the log says "sealed" with the recording id. Do NOT run `--finish` unless the seal is HELD.
-4. Submit ONCE from the kit dir (~/workspace/makefun/gta6-cover-art-01/gta6-cover-art-01-kit):
-   `node cli/makefun.mjs submit --competition gta6-cover-art-01 --recording 01a1f44c-dbac-708c-b816-b78b34a3958e --repo-url https://github.com/ipaludhi/vice-heat-cover-studio --commit <ROUND2_SHA> --title "LEONIDA HEAT — Vice Cover Studio" --keypair ~/workspace/makefun/makefun-keypair.json --repo ~/workspace/makefun/gta6-cover-art-01/repo --prompt-file ~/workspace/makefun/gta6-cover-art-01/prompt-user.txt --prompt-origin handed-off --prompt-via "main-chat agent created this side-chat build after the agents/me poll found the new free bounty gta6-cover-art-01, per the user's standing rule to join every free bounty" --mcp none --harness muse-app --harness-version 1.3 --provider meta --model ipnext/avocado-5.17-v2 --effort default --notes "LEONIDA HEAT round 2 - Vice Cover Studio; fresh rewrite under sealed recording 01a1f44c; main.ts agent-authored, files revised in 2+ messages" --parent-session /home/hatch/agents/agent-12d2b098-c9ec-4c7b-a1cd-f429085e1882/sessions/12d2b098-c9ec-4c7b-a1cd-f429085e1882.jsonl --parent-session /home/hatch/agents/agent-2c248d0d-bc4b-4c0f-8fb3-4ab1ca7de30a/sessions/2c248d0d-bc4b-4c0f-8fb3-4ab1ca7de30a.jsonl --parent-session /home/hatch/agents/agent-dc091632-401d-42aa-96c7-e1731d4bcbf3/sessions/dc091632-401d-42aa-96c7-e1731d4bcbf3.jsonl`
-   Notes: --no-family is INVALID for recording submits (only for --transcript/--bundle). The --parent-session chain is the round-1 chain (coordinator → side chat → main chat); it still applies because the prompt is the same handed-off message. If the submit is refused, read the new refusal and fix exactly what it names — never retry blind.
-5. On success: receipt (submission id + claim code) ONLY in the side chat, never in files/memory. Verify with `status --submission <id>` and report id + judge score (when scored) to the main chat. Update MEMORY.md (no claim code).
+## Screenshots (4, all ≤256 KiB, visually checked)
+
+- `1-cover.jpg` — 1280×720, 138,906 B,
+  sha256 `b386650388abe4845bf89edf2788ec667709d872c8e5177fe42edc4c6dec6729`
+  (diagonal hero, sunset grade)
+- `2-editor.jpg` — 1280×900, 176,438 B,
+  sha256 `93395c323948709caf6230215f3e4332193942422a883ef0b4d33c74c2a446d8`
+  (editor, all 6 layout + 6 grade chips + 3 presets visible)
+- `3-cover-square.jpg` — 1080×1080, 222,249 B,
+  sha256 `c6b2ad5ad93a3aa79c3d8dc5b43af32f351de330d359fc5b0724e581e6b80492`
+  (five panel, neon grade)
+- `4-cover-portrait.jpg` — 1024×1280, 232,728 B,
+  sha256 `bd18ea4b2a46170beee4fd4c9a22b4df547b06cd9b2c46d3c9f3b94e825794b0`
+  (nine grid, dusk grade)
+
+Visual check: title "SUNSET HEIST" fully readable on all covers,
+subtitle + badge + footer visible, palms read as palms (small, bottom
+corners), striped sun reads as a sun, faces whole, posterize clean on
+skin (not blotchy). Known cosmetic nit: in the nine-grid portrait the
+sun slightly overlaps the top-left subject's hat brim; accepted — it is
+a small corner element and the face stays fully readable.
+
+## Turn 2 — seal + submit (PARENT does this, not the build session)
+
+1. Verify the recording is still alive:
+   `pgrep -af "record --competition gta6-cover-art-01"` (PID 6939) and
+   the log. If it died, seal from disk (see round-2 lesson: write the
+   muse-usage file first, then `record --finish`).
+2. Write the muse-usage file (see above) — NEW file for round 3.
+3. Seal: `record --finish 01a1f8d7-00b3-7223-aaf6-8fa21731a712
+   --muse-usage ~/.makefun/muse-usage-gta6-cover-art-01-r3.jsonl`
+   from the kit dir.
+4. Verify the remote HEAD (the SUBMIT SHA) — from the push-api output
+   in this session's report, double-checked with
+   `git ls-remote https://github.com/ipaludhi/vice-heat-cover-studio.git HEAD`.
+   The remote SHA differs from the local HEAD SHA (push-api recreates
+   the commit); submit the REMOTE sha.
+5. Re-run the kit check AFTER the push (must still be 0 failed).
+6. Submit (from the kit dir, recording submit — NOT bundle):
+   ```
+   node cli/makefun.mjs submit --competition gta6-cover-art-01 \
+     --recording 01a1f8d7-00b3-7223-aaf6-8fa21731a712 \
+     --repo-url https://github.com/ipaludhi/vice-heat-cover-studio \
+     --commit <REMOTE SHA> \
+     --title "LEONIDA HEAT — Vice Cover Studio" \
+     --keypair ~/workspace/makefun/makefun-keypair.json \
+     --repo ~/workspace/makefun/gta6-cover-art-01/repo \
+     --prompt-file ~/workspace/makefun/gta6-cover-art-01/prompt-user.txt \
+     --prompt-origin handed-off --mcp none \
+     --harness muse-app --harness-version 1.3 \
+     --provider meta --model ipnext/avocado-5.17-v2 --effort default \
+     --parent-session <chain from the ACTUAL ancestry of build session
+       c69b6d5e-58c1-4b3a-ba86-6fa4f2a6bead: nearest parent first —
+       side chat 2c248d0d-bc4b-4c0f-8fb3-4ab1ca7de30a, then its parent
+       main-chat session. DO NOT copy the round-1/round-2 chains; derive
+       it from agent.agents parent links, as round 2 did.>
+   ```
+   (Round-2 lesson: --no-family is NOT valid for a recording submit;
+   --muse-usage belongs to `record --finish` only, never to submit.)
+7. Save the receipt: submission id + claim code go ONLY in this side
+   chat (never in MEMORY.md or a file). Do NOT claim automatically.
+8. Verify the result live via the API (submission status + checks),
+   especially `run_completes` this time, and report the judge score
+   when it lands. Top-10 bar was 94.1683% at 20 Nov 18:57 WIB
+   (5,535 ranked) — the bar keeps rising; round 3 needs ~94%+ to
+   reach top 10.
